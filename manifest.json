@@ -9,42 +9,42 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "icon-72x72.png",
+      "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png",
       "sizes": "72x72",
       "type": "image/png"
     },
     {
-      "src": "icon-96x96.png",
+      "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png",
       "sizes": "96x96",
       "type": "image/png"
     },
     {
-      "src": "icon-128x128.png",
+      "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png",
       "sizes": "128x128",
       "type": "image/png"
     },
     {
-      "src": "icon-144x144.png",
+      "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png",
       "sizes": "144x144",
       "type": "image/png"
     },
     {
-      "src": "icon-152x152.png",
+      "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png",
       "sizes": "152x152",
       "type": "image/png"
     },
     {
-      "src": "icon-192x192.png",
+      "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icon-384x384.png",
+      "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png",
       "sizes": "384x384",
       "type": "image/png"
     },
     {
-      "src": "icon-512x512.png",
+      "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png",
       "sizes": "512x512",
       "type": "image/png"
     }
@@ -55,14 +55,14 @@
       "short_name": "Alarm",
       "description": "Create a new alarm",
       "url": "/?view=alarm",
-      "icons": [{ "src": "https://aditya-cmd-max.github.io/choroid/alarm.png", "sizes": "96x96" }]
+      "icons": [{ "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png", "sizes": "96x96" }]
     },
     {
       "name": "Stopwatch",
       "short_name": "Timer",
       "description": "Start stopwatch",
       "url": "/?view=clock",
-      "icons": [{ "src": "https://aditya-cmd-max.github.io/choroid/alarm.png", "sizes": "96x96" }]
+      "icons": [{ "src": "https://aditya-cmd-max.github.io/choroid/ChatGPT Image Feb 26, 2026, 11_15_38 PM.png", "sizes": "96x96" }]
     }
   ]
 }
