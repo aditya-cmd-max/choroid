@@ -1716,5 +1716,47 @@
       }, 500);
     })();
   </script>
+
+<script>
+
+// Add to your existing script
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('Service Worker registered'))
+      .catch(err => console.log('Service Worker error:', err));
+  });
+}
+
+// Request notification permission
+function requestNotificationPermission() {
+  if ('Notification' in window) {
+    Notification.requestPermission();
+  }
+}
+
+// Show notification for alarms
+function showAlarmNotification(alarm) {
+  if (Notification.permission === 'granted') {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification('⏰ Alarm!', {
+        body: `${alarm.time} ${alarm.ampm} - ${alarm.label || 'Alarm'}`,
+        icon: 'icon-192x192.png',
+        badge: 'icon-96x96.png',
+        vibrate: [200, 100, 200, 100, 200],
+        tag: `alarm-${alarm.id}`,
+        renotify: true,
+        actions: [
+          { action: 'snooze', title: 'Snooze 5m' },
+          { action: 'dismiss', title: 'Dismiss' }
+        ],
+        data: { alarmId: alarm.id }
+      });
+    });
+  }
+}
+  
+</script>
+  
 </body>
 </html>
