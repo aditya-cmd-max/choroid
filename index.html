@@ -9,16 +9,16 @@
   <!-- Material Icons -->
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0,1" rel="stylesheet" />
   
-  <!-- Add to head section -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#ffb45b">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Choroid">
-<link rel="apple-touch-icon" href="icon-192x192.png">
+  <!-- PWA Manifest and Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffb45b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Choroid">
+  <link rel="apple-touch-icon" href="icon-192x192.png">
   
   <style>
-    /* Material 3 Design System */
+    /* Your existing CSS remains exactly the same */
     * {
       margin: 0;
       padding: 0;
@@ -699,11 +699,11 @@
       transform: scale(1) translateY(0);
     }
 
-    /* Ringing overlay */
+    /* Ringing overlay - IMPROVED FOR BETTER VISIBILITY */
     .ringing-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.95);
+      background: rgba(0,0,0,0.98);
       backdrop-filter: blur(32px);
       z-index: 2000;
       display: flex;
@@ -719,8 +719,30 @@
       pointer-events: all;
     }
     .ringing-overlay > div:first-child {
-      animation: ringBell 0.3s infinite alternate;
+      animation: ringBell 0.2s infinite alternate;
+      font-size: 8rem;
+      margin-bottom: 20px;
+    }
+    .ringing-overlay #ringTime {
       font-size: 5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff, var(--md-gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 10px 0;
+    }
+    .ringing-overlay #ringLabel {
+      font-size: 2.2rem;
+      color: white;
+      margin: 20px 0 30px;
+    }
+    .ringing-overlay .btn-row {
+      max-width: 400px;
+      width: 90%;
+    }
+    .ringing-overlay .btn {
+      font-size: 1.2rem;
+      padding: 16px 24px;
     }
 
     /* Toast */
@@ -815,13 +837,34 @@
       100% { opacity: 1; transform: scale(1); }
     }
     @keyframes ringBell {
-      0% { transform: rotate(-10deg) scale(1); }
-      100% { transform: rotate(10deg) scale(1.1); }
+      0% { transform: rotate(-15deg) scale(1); }
+      100% { transform: rotate(15deg) scale(1.2); }
+    }
+
+    /* Wake lock indicator */
+    .wake-lock-indicator {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: var(--md-gold);
+      color: black;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      z-index: 100;
+      display: none;
+    }
+    .wake-lock-indicator.active {
+      display: block;
     }
   </style>
 </head>
 <body>
   <canvas id="stars-canvas"></canvas>
+  
+  <!-- Wake lock indicator -->
+  <div class="wake-lock-indicator" id="wakeLockIndicator">⏰ ACTIVE</div>
 
   <div id="app">
     <!-- ========== IMPROVED CENTERED HEADER ========== -->
@@ -1037,12 +1080,12 @@
     </div>
   </div>
 
-  <!-- RINGING OVERLAY -->
+  <!-- RINGING OVERLAY - Enhanced for better visibility -->
   <div class="ringing-overlay" id="ringingOverlay">
     <div>⏰</div>
-    <div style="font-size:4rem; font-weight:700;" id="ringTime"></div>
-    <div style="margin:24px 0; font-size:1.8rem;" id="ringLabel"></div>
-    <div class="btn-row" style="max-width:300px;">
+    <div id="ringTime"></div>
+    <div id="ringLabel"></div>
+    <div class="btn-row">
       <button class="btn" id="snoozeBtn">SNOOZE 5m</button>
       <button class="btn danger" id="dismissBtn">DISMISS</button>
     </div>
@@ -1052,13 +1095,13 @@
 
   <script>
     (function() {
-      // ========== MATERIAL 3 EXPRESSIVE DESIGN ==========
+      // ========== ENHANCED ALARM SYSTEM WITH BACKGROUND SUPPORT ==========
       const DAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
       
-      // Load from localStorage with proper defaults
+      // Load from localStorage
       let alarms = JSON.parse(localStorage.getItem('choroid_alarms_v2') || '[]');
       
-      // Settings with proper structure
+      // Settings
       let settings = JSON.parse(localStorage.getItem('choroid_settings_v2') || JSON.stringify({
         theme: 'dark',
         defaultView: 'clock',
@@ -1075,93 +1118,342 @@
       let ringAudio = null;
       let snoozeTimeout = null;
       let editingId = null;
+      let wakeLock = null;
+      let audioContext = null;
 
       // Apply theme
       if (settings.theme === 'light') {
         document.body.classList.add('light-theme');
       }
 
-      // ========== FIXED AUDIO UPLOAD - NO AUTO-PLAY ==========
-      function playSound(type) {
-        // Stop any currently playing sound
-        if (ringAudio) {
-          ringAudio.pause();
-          ringAudio.currentTime = 0;
-          ringAudio = null;
+      // ========== WAKE LOCK API - Keep screen on during alarm ==========
+      async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+          try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            document.getElementById('wakeLockIndicator').classList.add('active');
+            console.log('Wake lock acquired');
+            
+            wakeLock.addEventListener('release', () => {
+              document.getElementById('wakeLockIndicator').classList.remove('active');
+              console.log('Wake lock released');
+            });
+          } catch (err) {
+            console.error('Wake lock error:', err);
+          }
         }
+      }
 
+      function releaseWakeLock() {
+        if (wakeLock) {
+          wakeLock.release();
+          wakeLock = null;
+        }
+      }
+
+      // ========== BACKGROUND AUDIO SETUP ==========
+      function initAudioContext() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return audioContext;
+      }
+
+      async function playSoundInBackground(type) {
         try {
-          if(type === 'uploaded' && settings.uploadedTune) {
-            // Create audio but DON'T auto-play
+          // Stop any currently playing sound
+          if (ringAudio) {
+            ringAudio.pause();
+            ringAudio.currentTime = 0;
+            ringAudio = null;
+          }
+
+          // Try to use Web Audio API for better background support
+          if (type === 'uploaded' && settings.uploadedTune) {
+            // For uploaded tunes, use regular Audio element
             ringAudio = new Audio(settings.uploadedTune);
             ringAudio.volume = 0.3;
+            ringAudio.loop = true; // Loop for continuous alarm
             
-            // Only play when explicitly called
-            ringAudio.play().catch(e => {
-              console.log('Audio play failed - user interaction needed?', e);
-              // Fallback to oscillator if audio can't play
-              playFallbackSound('classic');
-            });
+            // Try to play and handle autoplay restrictions
+            try {
+              await ringAudio.play();
+            } catch (e) {
+              console.log('Audio play failed, will retry after user interaction');
+              // Show notification as fallback
+              showNotification('⏰ Alarm!', ringAudio);
+            }
             
             ringAudio.onended = () => { 
               if (ringAudio === ringAudio) ringAudio = null; 
             };
-            return;
-          }
-          
-          playFallbackSound(type);
-        } catch(e) {
-          console.log('Audio error, using fallback', e);
-          playFallbackSound('classic');
-        }
-      }
-
-      function playFallbackSound(type) {
-        try {
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          if(audioCtx.state === 'suspended') audioCtx.resume();
-          
-          let osc = audioCtx.createOscillator();
-          let gain = audioCtx.createGain();
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          gain.gain.value = 0.15;
-          
-          if(type === 'classic') {
-            osc.frequency.value = 880;
-            osc.type = 'sine';
-          } else if(type === 'digital') {
-            osc.frequency.value = 440;
-            osc.type = 'square';
-          } else if(type === 'gentle') {
-            osc.frequency.value = 330;
-            osc.type = 'triangle';
           } else {
-            osc.frequency.value = 880;
+            // Use Web Audio API for generated sounds (better background support)
+            const ctx = initAudioContext();
+            
+            // Resume audio context if suspended
+            if (ctx.state === 'suspended') {
+              await ctx.resume();
+            }
+            
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            // Set sound type
+            if (type === 'classic') {
+              oscillator.frequency.value = 880;
+              oscillator.type = 'sine';
+            } else if (type === 'digital') {
+              oscillator.frequency.value = 440;
+              oscillator.type = 'square';
+            } else if (type === 'gentle') {
+              oscillator.frequency.value = 330;
+              oscillator.type = 'triangle';
+            }
+            
+            gainNode.gain.value = 0.15;
+            
+            // Loop the sound
+            oscillator.start();
+            
+            // Store oscillator for stopping later
+            ringAudio = {
+              stop: () => {
+                oscillator.stop();
+                oscillator.disconnect();
+              },
+              oscillator,
+              gainNode
+            };
           }
-          
-          osc.start(audioCtx.currentTime);
-          osc.stop(audioCtx.currentTime + 0.8);
-        } catch(e) {}
+
+          // Vibrate if enabled
+          if (settings.vibration === 'on' && navigator.vibrate) {
+            navigator.vibrate([500, 200, 500, 200, 500]);
+          }
+
+        } catch (e) {
+          console.error('Audio playback error:', e);
+          // Fallback to notification
+          showNotification('⏰ Alarm!', null);
+        }
       }
 
-      function stopRinging() {
-        if (ringTimeout) {
-          clearTimeout(ringTimeout);
-          ringTimeout = null;
-        }
+      function stopBackgroundSound() {
         if (ringAudio) {
-          ringAudio.pause();
-          ringAudio.currentTime = 0;
+          if (ringAudio.stop) {
+            ringAudio.stop();
+          } else {
+            ringAudio.pause();
+            ringAudio.currentTime = 0;
+          }
           ringAudio = null;
         }
+        
+        // Suspend audio context to save battery
+        if (audioContext && audioContext.state === 'running') {
+          audioContext.suspend();
+        }
       }
 
-      // Helper functions
+      // ========== NOTIFICATION SYSTEM ==========
+      async function showNotification(title, alarm) {
+        // Request permission if not granted
+        if (Notification.permission !== 'granted') {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') return;
+        }
+
+        // Show notification
+        const notification = new Notification(title, {
+          body: alarm ? `${alarm.time} ${alarm.ampm} - ${alarm.label || 'Alarm'}` : 'Time is up!',
+          icon: 'icon-192x192.png',
+          badge: 'icon-96x96.png',
+          vibrate: [200, 100, 200],
+          tag: 'alarm',
+          renotify: true,
+          requireInteraction: true, // Keep notification until user interacts
+          actions: [
+            { action: 'snooze', title: 'Snooze 5m' },
+            { action: 'dismiss', title: 'Dismiss' }
+          ]
+        });
+
+        notification.onclick = (event) => {
+          event.preventDefault();
+          window.focus();
+          notification.close();
+        };
+
+        notification.onaction = (event) => {
+          if (event.action === 'snoooze') {
+            handleSnooze();
+          } else if (event.action === 'dismiss') {
+            handleDismiss();
+          }
+          notification.close();
+        };
+      }
+
+      // ========== BACKGROUND TIMER WORKER ==========
+      let timerWorker = null;
+      
+      function startBackgroundTimer(minutes) {
+        // Use setTimeout for background timing
+        const timeoutId = setTimeout(() => {
+          // Timer finished in background
+          playSoundInBackground(settings.defaultTune);
+          showNotification('⏰ Timer Finished!', null);
+          requestWakeLock();
+          document.getElementById('ringingOverlay').classList.add('open');
+        }, minutes * 60 * 1000);
+        
+        return timeoutId;
+      }
+
+      // ========== ENHANCED ALARM CHECKING ==========
+      function checkAlarms(now) {
+        if (activeRinging) return;
+        
+        let h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+        
+        alarms.forEach(a => {
+          if (!a.active) return;
+          
+          let [ah, am] = a.time.split(':').map(Number);
+          if (a.ampm === 'PM' && ah !== 12) ah += 12;
+          if (a.ampm === 'AM' && ah === 12) ah = 0;
+          
+          let today = DAYS[now.getDay()];
+          if (a.days && a.days.length > 0 && !a.days.includes(today)) return;
+          
+          // Check with 30-second window for better reliability
+          if (ah === h && am === m && s <= 30) {
+            triggerAlarm(a);
+          }
+        });
+      }
+
+      // ========== TRIGGER ALARM WITH FULL SCREEN OVERLAY ==========
+      async function triggerAlarm(alarm) {
+        activeRinging = alarm;
+        
+        // Update overlay
+        document.getElementById('ringTime').innerText = `${alarm.time} ${alarm.ampm}`;
+        document.getElementById('ringLabel').innerText = alarm.label || 'Alarm';
+        
+        // Show overlay
+        document.getElementById('ringingOverlay').classList.add('open');
+        
+        // Request wake lock to keep screen on
+        await requestWakeLock();
+        
+        // Play sound
+        const soundToPlay = alarm.sound || settings.defaultTune;
+        await playSoundInBackground(soundToPlay);
+        
+        // Show notification as backup
+        showNotification('⏰ Alarm!', alarm);
+        
+        // Schedule repeat
+        if (ringTimeout) clearTimeout(ringTimeout);
+        ringTimeout = setTimeout(() => {
+          if (activeRinging === alarm) {
+            playSoundInBackground(soundToPlay);
+          }
+        }, 10000); // Repeat every 10 seconds
+      }
+
+      // ========== HANDLE DISMISS ==========
+      function handleDismiss() {
+        stopBackgroundSound();
+        releaseWakeLock();
+        if (ringTimeout) clearTimeout(ringTimeout);
+        if (snoozeTimeout) clearTimeout(snoozeTimeout);
+        activeRinging = null;
+        document.getElementById('ringingOverlay').classList.remove('open');
+        showToast('Alarm dismissed');
+      }
+
+      // ========== HANDLE SNOOZE ==========
+      function handleSnooze() {
+        stopBackgroundSound();
+        releaseWakeLock();
+        
+        let snoozeAlarm = activeRinging;
+        document.getElementById('ringingOverlay').classList.remove('open');
+        showToast('Snoozed 5 minutes');
+        
+        if (snoozeTimeout) clearTimeout(snoozeTimeout);
+        snoozeTimeout = setTimeout(() => {
+          if (snoozeAlarm) {
+            triggerAlarm(snoozeAlarm);
+          }
+        }, 5 * 60 * 1000); // 5 minutes
+        
+        activeRinging = null;
+      }
+
+      // Attach handlers
+      document.getElementById('dismissBtn').onclick = handleDismiss;
+      document.getElementById('snoozeBtn').onclick = handleSnooze;
+
+      // ========== SERVICE WORKER REGISTRATION ==========
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js')
+            .then(reg => {
+              console.log('Service Worker registered');
+              
+              // Listen for messages from service worker
+              navigator.serviceWorker.addEventListener('message', event => {
+                if (event.data.type === 'ALARM_TRIGGER') {
+                  const alarm = alarms.find(a => a.id === event.data.alarmId);
+                  if (alarm) triggerAlarm(alarm);
+                } else if (event.data.type === 'SNOOZE_ALARM') {
+                  handleSnooze();
+                } else if (event.data.type === 'DISMISS_ALARM') {
+                  handleDismiss();
+                }
+              });
+            })
+            .catch(err => console.log('Service Worker error:', err));
+        });
+      }
+
+      // ========== REQUEST NOTIFICATION PERMISSION ==========
+      function requestNotificationPermission() {
+        if ('Notification' in window && Notification.permission !== 'granted') {
+          Notification.requestPermission();
+        }
+      }
+
+      // Call on user interaction
+      document.addEventListener('click', () => {
+        requestNotificationPermission();
+      }, { once: true });
+
+      // ========== VISIBILITY CHANGE HANDLER ==========
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          // Page hidden - alarms will be handled by service worker
+          console.log('App in background, alarms handled by service worker');
+        } else {
+          // Page visible again
+          if (activeRinging) {
+            document.getElementById('ringingOverlay').classList.add('open');
+          }
+        }
+      });
+
+      // ========== HELPER FUNCTIONS (keep your existing ones) ==========
       const fmt2 = n => String(n).padStart(2,'0');
       const fmt3 = n => String(n).padStart(3,'0');
 
-      // Stars canvas
+      // Stars canvas (keep your existing implementation)
       const canvas = document.getElementById('stars-canvas');
       const ctx = canvas.getContext('2d');
       let stars = [];
@@ -1192,7 +1484,7 @@
       initStars();
       drawStars();
 
-      // Build clock ticks
+      // Build clock ticks (keep your existing implementation)
       const ticks = document.getElementById('ticks');
       const hourNums = document.getElementById('hourNums');
       for(let i=0;i<60;i++) {
@@ -1255,11 +1547,8 @@
         let ampm = h>=12?'PM':'AM';
         let timeString = settings.hourFormat === '24' ? `${fmt2(h)}:${fmt2(m)}` : `${fmt2(h12)}:${fmt2(m)} ${ampm}`;
         
-        // Update digital displays
         document.getElementById('digitalTime').innerText = timeString;
         document.getElementById('digitalSeconds').innerHTML = `:${fmt2(s)} SEC`;
-        
-        // Update centered header time
         document.getElementById('headerTime').innerText = timeString;
 
         const weekdays = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
@@ -1341,8 +1630,8 @@
         showToast(`Lap ${laps.length} recorded`);
       };
 
-      // Timer
-      let timerRun=false, timerRemain=0, timerTotal=0, timerInt;
+      // Timer with background support
+      let timerRun=false, timerRemain=0, timerTotal=0, timerInt, backgroundTimerId;
       const tH=document.getElementById('tH'), tM=document.getElementById('tM'), tS=document.getElementById('tS');
       const timerDisp = document.getElementById('timerDisp');
       const timerInputs = document.getElementById('timerInputs');
@@ -1357,21 +1646,28 @@
             return;
           }
           if(timerRemain===0) timerTotal=total, timerRemain=total;
-          timerInt = setInterval(()=>{
-            if(timerRemain<=0){
-              clearInterval(timerInt); 
-              timerRun=false; 
-              timerStartBtn.innerHTML = 'START';
-              timerDisp.classList.remove('visible'); 
-              timerInputs.classList.remove('hidden');
-              playSound(settings.defaultTune);
-              showToast('Timer finished!');
-              return; 
-            }
-            timerRemain--; 
-            let hh=Math.floor(timerRemain/3600), mm=Math.floor((timerRemain%3600)/60), ss=timerRemain%60;
-            timerDisp.innerText = `${fmt2(hh)}:${fmt2(mm)}:${fmt2(ss)}`;
-          },1000);
+          
+          // Start background timer if page is hidden
+          if (document.hidden) {
+            backgroundTimerId = startBackgroundTimer(total / 60);
+          } else {
+            timerInt = setInterval(()=>{
+              if(timerRemain<=0){
+                clearInterval(timerInt); 
+                timerRun=false; 
+                timerStartBtn.innerHTML = 'START';
+                timerDisp.classList.remove('visible'); 
+                timerInputs.classList.remove('hidden');
+                playSoundInBackground(settings.defaultTune);
+                showToast('Timer finished!');
+                return; 
+              }
+              timerRemain--; 
+              let hh=Math.floor(timerRemain/3600), mm=Math.floor((timerRemain%3600)/60), ss=timerRemain%60;
+              timerDisp.innerText = `${fmt2(hh)}:${fmt2(mm)}:${fmt2(ss)}`;
+            },1000);
+          }
+          
           timerRun=true; 
           timerStartBtn.innerHTML = 'PAUSE';
           timerInputs.classList.add('hidden');
@@ -1379,13 +1675,16 @@
           showToast('Timer started');
         } else { 
           clearInterval(timerInt); 
+          clearTimeout(backgroundTimerId);
           timerRun=false; 
           timerStartBtn.innerHTML = 'RESUME';
           showToast('Timer paused');
         }
       };
+      
       document.getElementById('timerReset').onclick = ()=>{
         clearInterval(timerInt); 
+        clearTimeout(backgroundTimerId);
         timerRun=false; 
         timerRemain=0;
         timerInputs.classList.remove('hidden');
@@ -1394,10 +1693,18 @@
         showToast('Timer reset');
       };
 
-      // ========== ALARM FUNCTIONS WITH PERSISTENCE ==========
+      // ========== ALARM FUNCTIONS ==========
       function saveAlarms() { 
         localStorage.setItem('choroid_alarms_v2', JSON.stringify(alarms)); 
         renderAlarms(); 
+        
+        // Sync with service worker if available
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'SYNC_ALARMS',
+            alarms: alarms
+          });
+        }
       }
 
       function renderAlarms() {
@@ -1482,66 +1789,6 @@
           });
         });
       }
-
-      // Check alarms
-      function checkAlarms(now) {
-        if(activeRinging) return;
-        let h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
-        alarms.forEach(a => {
-          if(!a.active) return;
-          let [ah, am] = a.time.split(':').map(Number);
-          if(a.ampm === 'PM' && ah !== 12) ah += 12;
-          if(a.ampm === 'AM' && ah === 12) ah = 0;
-          
-          let today = DAYS[now.getDay()];
-          if(a.days && a.days.length > 0 && !a.days.includes(today)) return;
-          
-          if(ah === h && am === m && Math.abs(s) <= 1) {
-            activeRinging = a;
-            document.getElementById('ringTime').innerText = `${a.time} ${a.ampm}`;
-            document.getElementById('ringLabel').innerText = a.label || 'Alarm';
-            document.getElementById('ringingOverlay').classList.add('open');
-            
-            let soundToPlay = a.sound || settings.defaultTune;
-            playSound(soundToPlay);
-            
-            ringTimeout = setTimeout(() => {
-              if (activeRinging === a) {
-                playSound(soundToPlay);
-              }
-            }, 5000);
-          }
-        });
-      }
-
-      // Dismiss
-      document.getElementById('dismissBtn').onclick = ()=>{
-        stopRinging();
-        if(snoozeTimeout) clearTimeout(snoozeTimeout);
-        activeRinging = null;
-        document.getElementById('ringingOverlay').classList.remove('open');
-        showToast('Alarm dismissed');
-      };
-
-      // Snooze
-      document.getElementById('snoozeBtn').onclick = ()=>{
-        stopRinging();
-        let snoozeAlarm = activeRinging;
-        document.getElementById('ringingOverlay').classList.remove('open');
-        showToast('Snoozed 5 minutes');
-        if(snoozeTimeout) clearTimeout(snoozeTimeout);
-        snoozeTimeout = setTimeout(() => {
-          if(snoozeAlarm) {
-            activeRinging = snoozeAlarm;
-            document.getElementById('ringTime').innerText = `${snoozeAlarm.time} ${snoozeAlarm.ampm}`;
-            document.getElementById('ringLabel').innerText = snoozeAlarm.label || 'Alarm';
-            document.getElementById('ringingOverlay').classList.add('open');
-            let snd = snoozeAlarm.sound || settings.defaultTune;
-            playSound(snd);
-          }
-        }, 5*60*1000);
-        activeRinging = null;
-      };
 
       // Alarm modal
       const alarmModal = document.getElementById('alarmModal');
@@ -1635,13 +1882,12 @@
 
       document.getElementById('closeSettings').addEventListener('click', ()=> settingsModal.classList.remove('open'));
 
-      // ========== FIXED: Upload tune - NO AUTO-PLAY ==========
+      // Upload tune
       document.getElementById('uploadTune').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if(file) {
           const reader = new FileReader();
           reader.onload = function(ev) {
-            // Store the audio data but DON'T play it
             settings.uploadedTune = ev.target.result;
             settings.uploadedTuneName = file.name;
             localStorage.setItem('choroid_settings_v2', JSON.stringify(settings));
@@ -1663,7 +1909,6 @@
         };
         localStorage.setItem('choroid_settings_v2', JSON.stringify(settings));
         
-        // Apply theme
         if(settings.theme === 'light') {
           document.body.classList.add('light-theme');
         } else {
@@ -1716,47 +1961,5 @@
       }, 500);
     })();
   </script>
-
-<script>
-
-// Add to your existing script
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('Service Worker registered'))
-      .catch(err => console.log('Service Worker error:', err));
-  });
-}
-
-// Request notification permission
-function requestNotificationPermission() {
-  if ('Notification' in window) {
-    Notification.requestPermission();
-  }
-}
-
-// Show notification for alarms
-function showAlarmNotification(alarm) {
-  if (Notification.permission === 'granted') {
-    navigator.serviceWorker.ready.then(reg => {
-      reg.showNotification('⏰ Alarm!', {
-        body: `${alarm.time} ${alarm.ampm} - ${alarm.label || 'Alarm'}`,
-        icon: 'icon-192x192.png',
-        badge: 'icon-96x96.png',
-        vibrate: [200, 100, 200, 100, 200],
-        tag: `alarm-${alarm.id}`,
-        renotify: true,
-        actions: [
-          { action: 'snooze', title: 'Snooze 5m' },
-          { action: 'dismiss', title: 'Dismiss' }
-        ],
-        data: { alarmId: alarm.id }
-      });
-    });
-  }
-}
-  
-</script>
-  
 </body>
 </html>
